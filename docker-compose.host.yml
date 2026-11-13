@@ -1,0 +1,27 @@
+# ============================================================
+# AgentBargain - host-network override (Linux)
+# ============================================================
+# Use when the LLM provider runs on this machine and listens on loopback only,
+# like a default Ollama install (127.0.0.1:11434). On the default bridge
+# network the container's "localhost" is the container itself, so every LLM
+# call fails and LLM-engine negotiations end in "reject".
+#
+#   docker compose -f docker-compose.yml -f docker-compose.host.yml up --build
+#
+# The container then shares the host's network stack:
+#   * OLLAMA_BASE_URL=http://localhost:11434 from .env reaches the host's Ollama;
+#   * the app binds 127.0.0.1, so it is reachable from this machine only —
+#     exactly like running `agent-bargain` locally, and never exposed to the LAN;
+#   * the dashboard is at http://localhost:${SERVER_PORT:-8000}.
+# ============================================================
+
+services:
+  app:
+    network_mode: host
+    # Port publishing does not apply to host networking (and Compose rejects
+    # the combination), so drop the mapping inherited from docker-compose.yml.
+    ports: !reset []
+    environment:
+      # Overrides the 0.0.0.0 set in docker-compose.yml: on the host network
+      # that would expose the API on every interface of this machine.
+      SERVER_HOST: 127.0.0.1

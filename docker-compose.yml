@@ -1,0 +1,39 @@
+# ============================================================
+# AgentBargain - Docker Compose
+# ============================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent-bargain
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      # Overrides .env: inside the container the app must bind all interfaces.
+      # Startup then requires API_KEYS (or ALLOW_UNAUTHENTICATED=true in .env).
+      SERVER_HOST: 0.0.0.0
+    volumes:
+      - app-data:/app/data     # Persist SQLite and ChromaDB data
+    restart: unless-stopped
+    healthcheck:
+      # raise_for_status(): without it a 500 response still exits 0 and the
+      # container reports "healthy" while the API is broken.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import httpx; httpx.get('http://localhost:8000/health', timeout=5).raise_for_status()",
+        ]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  app-data:
+    driver: local

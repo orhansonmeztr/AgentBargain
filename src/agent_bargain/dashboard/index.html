@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentBargain — Autonomous Agent Marketplace</title>
+    <meta name="description" content="Live dashboard for the AgentBargain autonomous agent negotiation marketplace. Watch AI agents negotiate in real time.">
+    <script src="vendor/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-inner">
+            <div class="header-brand">
+                <div class="brand-icon">⚖️</div>
+                <div class="brand-text">
+                    <h1 class="brand-name">AgentBargain</h1>
+                    <span class="brand-sub">Autonomous Agent Marketplace</span>
+                </div>
+            </div>
+            <div class="header-stats">
+                <div class="stat-pill" id="stat-total">
+                    <span class="stat-value" id="total-count">—</span>
+                    <span class="stat-label">Negotiations</span>
+                </div>
+                <div class="stat-pill success" id="stat-accepted">
+                    <span class="stat-value" id="accepted-count">—</span>
+                    <span class="stat-label">Accepted</span>
+                </div>
+                <div class="stat-pill" id="stat-rate">
+                    <span class="stat-value" id="accept-rate">—</span>
+                    <span class="stat-label">Accept Rate</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="api-key-box" title="Required when the server sets API_KEYS. Stored in this browser only.">
+                    <label class="api-key-label" for="api-key">🔑</label>
+                    <input class="form-input api-key-input" id="api-key" type="password"
+                           placeholder="API key" autocomplete="off" spellcheck="false">
+                    <button class="btn-icon" id="api-key-save" onclick="saveApiKey()" title="Save key and reconnect">✓</button>
+                </div>
+                <div class="ws-status" id="ws-status">
+                    <span class="ws-dot" id="ws-dot"></span>
+                    <span id="ws-label">Connecting…</span>
+                </div>
+                <button class="btn btn-demo" id="demo-btn" onclick="startDemo()">
+                    🚀 Demo Run
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <main class="main-grid">
+
+        <!-- LEFT COLUMN: Launch Form + Leaderboard -->
+        <aside class="sidebar">
+            <!-- Launch Form -->
+            <section class="card" id="launch-card">
+                <h2 class="card-title">
+                    <span class="card-icon">🎯</span>
+                    Start Negotiation
+                </h2>
+                <form id="launch-form" onsubmit="launchNegotiation(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="buyer-id">Buyer Agent ID</label>
+                        <input class="form-input" id="buyer-id" type="text" value="buyer_alpha" placeholder="buyer_alpha" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="seller-id">Seller Agent ID</label>
+                        <input class="form-input" id="seller-id" type="text" value="seller_omega" placeholder="seller_omega" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="service-title">Service</label>
+                        <input class="form-input" id="service-title" type="text" value="AI Data Analysis API" placeholder="Service description" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="service-id">Service ID</label>
+                        <input class="form-input" id="service-id" type="text" value="svc_ai_data_analysis" placeholder="svc_ai_data_analysis" required>
+                        <span class="form-hint">Reusing an ID updates that listing. A new ID creates one.</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="engine">🔀 Engine</label>
+                        <select class="form-input" id="engine">
+                            <option value="llm">LLM reasoning</option>
+                            <option value="strategy">Strategy (deterministic, no LLM)</option>
+                        </select>
+                    </div>
+                    <div class="form-row" id="strategy-row" hidden>
+                        <div class="form-group">
+                            <label class="form-label" for="buyer-strategy">Buyer strategy</label>
+                            <select class="form-input" id="buyer-strategy"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="seller-strategy">Seller strategy</label>
+                            <select class="form-input" id="seller-strategy"></select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="floor-price">🔒 Seller Floor</label>
+                            <input class="form-input" id="floor-price" type="number" value="100" min="0" step="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="base-price">🏷️ Asking Price</label>
+                            <input class="form-input" id="base-price" type="number" value="380" min="0" step="1" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="max-budget">💰 Buyer Budget</label>
+                        <input class="form-input" id="max-budget" type="number" value="500" min="1" step="1" required>
+                    </div>
+                    <span class="form-hint">
+                        Launching registers the listing first (seller ID, floor and asking price),
+                        then opens the negotiation. The floor belongs to the seller — the buyer
+                        cannot set it.
+                    </span>
+                    <button class="btn btn-primary btn-full" type="submit" id="launch-btn">
+                        <span id="launch-btn-text">⚡ Launch Negotiation</span>
+                    </button>
+                </form>
+            </section>
+
+            <!-- Agent Leaderboard -->
+            <section class="card" id="leaderboard-card">
+                <h2 class="card-title">
+                    <span class="card-icon">🏆</span>
+                    Reputation Leaderboard
+                </h2>
+                <ul class="leaderboard-list" id="leaderboard-list">
+                    <li class="leaderboard-empty">No agents yet. Start a negotiation!</li>
+                </ul>
+                <button class="btn btn-ghost btn-full" onclick="refreshLeaderboard()">↻ Refresh</button>
+            </section>
+
+            <!-- Strategies Panel -->
+            <section class="card" id="strategies-card">
+                <h2 class="card-title">
+                    <span class="card-icon">🧠</span>
+                    SDK Strategies
+                </h2>
+                <ul class="strategies-list" id="strategies-list">
+                    <li class="strategy-loading">Loading…</li>
+                </ul>
+            </section>
+        </aside>
+
+        <!-- CENTER COLUMN: Chat + Price Chart -->
+        <div class="center-col">
+            <!-- Active Negotiations Tabs -->
+            <section class="card negotiations-card">
+                <div class="card-header-row">
+                    <h2 class="card-title">
+                        <span class="card-icon">💬</span>
+                        Live Negotiations
+                    </h2>
+                    <div class="tab-bar" id="neg-tabs"></div>
+                </div>
+                <div id="chat-view" class="chat-view">
+                    <div class="chat-empty" id="chat-empty">
+                        <div class="chat-empty-icon">🤖</div>
+                        <p>Start a negotiation to see agents bargaining in real time.</p>
+                    </div>
+                </div>
+                <div class="chat-status-bar" id="chat-status-bar">
+                    <span id="chat-status-text">Waiting for negotiation…</span>
+                </div>
+            </section>
+
+            <!-- Price Timeline Chart -->
+            <section class="card chart-card">
+                <div class="card-header-row">
+                    <h2 class="card-title">
+                        <span class="card-icon">📈</span>
+                        Price Timeline
+                    </h2>
+                    <div id="chart-legend" class="chart-legend"></div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="price-chart"></canvas>
+                </div>
+            </section>
+        </div>
+
+        <!-- RIGHT COLUMN: Game Theory Panel + Event Log -->
+        <div class="right-col">
+            <!-- Game Theory Panel -->
+            <section class="card game-theory-card">
+                <h2 class="card-title">
+                    <span class="card-icon">🎲</span>
+                    Game Theory Analysis
+                </h2>
+                <div id="gt-empty" class="gt-empty">Complete a negotiation to see analysis.</div>
+                <div id="gt-content" class="gt-content" style="display:none">
+                    <!-- ZOPA Bar -->
+                    <div class="gt-section">
+                        <div class="gt-label">ZOPA (Zone of Possible Agreement)</div>
+                        <div class="zopa-bar-container">
+                            <div class="zopa-bar" id="zopa-bar">
+                                <div class="zopa-fill" id="zopa-fill"></div>
+                                <div class="zopa-marker nash-marker" id="nash-marker" title="Nash Equilibrium">N</div>
+                                <div class="zopa-marker price-marker" id="price-marker" title="Final Price">✓</div>
+                            </div>
+                            <div class="zopa-labels">
+                                <span id="zopa-low-label">$0</span>
+                                <span id="zopa-high-label">$0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Grid -->
+                    <div class="gt-metrics-grid">
+                        <div class="gt-metric">
+                            <div class="gt-metric-icon">⚖️</div>
+                            <div class="gt-metric-value" id="gt-nash">—</div>
+                            <div class="gt-metric-label">Nash Price</div>
+                        </div>
+                        <div class="gt-metric">
+                            <div class="gt-metric-icon">🎯</div>
+                            <div class="gt-metric-value" id="gt-pareto">—</div>
+                            <div class="gt-metric-label">Pareto</div>
+                        </div>
+                        <div class="gt-metric">
+                            <div class="gt-metric-icon">📐</div>
+                            <div class="gt-metric-value" id="gt-efficiency">—</div>
+                            <div class="gt-metric-label">Efficiency</div>
+                        </div>
+                        <div class="gt-metric">
+                            <div class="gt-metric-icon">🤝</div>
+                            <div class="gt-metric-value" id="gt-fairness">—</div>
+                            <div class="gt-metric-label">Fairness</div>
+                        </div>
+                    </div>
+
+                    <!-- Surplus Split -->
+                    <div class="gt-section">
+                        <div class="gt-label">Surplus Distribution</div>
+                        <div class="surplus-bar">
+                            <div class="surplus-buyer" id="surplus-buyer-bar" title="Buyer surplus"></div>
+                            <div class="surplus-seller" id="surplus-seller-bar" title="Seller surplus"></div>
+                        </div>
+                        <div class="surplus-labels">
+                            <span class="surplus-label-buyer">Buyer <span id="surplus-buyer-val">$0</span></span>
+                            <span class="surplus-label-seller">Seller <span id="surplus-seller-val">$0</span></span>
+                        </div>
+                    </div>
+
+                    <!-- BATNA -->
+                    <div class="gt-section">
+                        <div class="gt-label">BATNA Distance</div>
+                        <div class="batna-row">
+                            <div class="batna-item">
+                                <span class="batna-role">Buyer</span>
+                                <span class="batna-val positive" id="batna-buyer">—</span>
+                            </div>
+                            <div class="batna-item">
+                                <span class="batna-role">Seller</span>
+                                <span class="batna-val positive" id="batna-seller">—</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Aggregate Stats -->
+            <section class="card">
+                <h2 class="card-title">
+                    <span class="card-icon">📊</span>
+                    Marketplace Stats
+                </h2>
+                <div class="stats-grid">
+                    <div class="stats-item">
+                        <span class="stats-val" id="agg-total">—</span>
+                        <span class="stats-lbl">Total Deals</span>
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-val success" id="agg-rate">—</span>
+                        <span class="stats-lbl">Accept Rate</span>
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-val" id="agg-rounds">—</span>
+                        <span class="stats-lbl">Avg Rounds</span>
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-val" id="agg-price">—</span>
+                        <span class="stats-lbl">Avg Price</span>
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-val accent" id="agg-efficiency">—</span>
+                        <span class="stats-lbl">Avg Efficiency</span>
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-val accent" id="agg-fairness">—</span>
+                        <span class="stats-lbl">Avg Fairness</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Event Log -->
+            <section class="card log-card">
+                <h2 class="card-title">
+                    <span class="card-icon">📝</span>
+                    Event Log
+                    <button class="btn-icon" onclick="clearLog()" title="Clear log">🗑</button>
+                </h2>
+                <div class="log-container" id="event-log"></div>
+            </section>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# Keep the build context to what the Dockerfile copies, and keep secrets and
+# local state out of it entirely. docker-compose reads .env at *run* time
+# (env_file), so it never needs to be in the image.
+.git
+.venv
+.env
+.env.*
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated / local-only
+__pycache__/
+*.py[oc]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info
+
+# Not needed in the image
+tests/
+.github/
+.idea/
+.vscode/

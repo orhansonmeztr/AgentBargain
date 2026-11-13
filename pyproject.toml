@@ -1,0 +1,70 @@
+[project]
+name = "agent-bargain"
+version = "0.1.0"
+description = "A decentralized, reputation-based marketplace for autonomous Multi-Agent Systems"
+readme = "README.md"
+authors = [
+    { name = "Orhan Sonmez", email = "orhansonmeztr@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "a2a-sdk[fastapi]>=1.3.0",
+    "aiosqlite>=0.21",
+    "alembic>=1.13",
+    "chromadb>=0.6",
+    "fastapi>=0.115",
+    "httpx>=0.28",
+    "langchain-core>=0.3",
+    "langchain-google-genai>=4.0",
+    "langchain-ollama>=0.3",
+    "langchain-openai>=0.3",
+    "langgraph>=0.4",
+    "mcp>=2.3.0",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "python-dotenv>=1.0",
+    "rank-bm25>=0.2",
+    # Imported directly by alembic/env.py; declared rather than relied on
+    # transitively through alembic.
+    "sqlalchemy>=2.0",
+    "uvicorn[standard]>=0.30",
+    "websockets>=14.0",
+]
+
+[project.scripts]
+agent-bargain = "agent_bargain:main"
+agent-bargain-mcp = "agent_bargain.protocols.mcp_server:main"
+
+[build-system]
+requires = ["uv_build>=0.11.8,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.25",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-include = ["alembic/**/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in default arguments (FastAPI pattern)
+]
+
+[tool.ruff.lint.isort]
+# Ruff infers first-party packages from directories at the project root, so the
+# ``alembic/`` migration folder makes it treat ``import alembic`` as local code.
+# Both lists are pinned to keep src/ and tests/ sorted identically.
+known-first-party = ["agent_bargain"]
+known-third-party = ["alembic"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
